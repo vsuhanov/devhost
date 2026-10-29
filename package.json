@@ -1,0 +1,25 @@
+{
+  "name": "devhost",
+  "version": "0.1.0",
+  "description": "HTTPS hostnames for locally running apps, one set per git worktree, via Caddy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vsuhanov/devhost.git"
+  },
+  "private": true,
+  "type": "module",
+  "bin": {
+    "devhost": "bin/devhost"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}

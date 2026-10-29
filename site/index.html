@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>devhost</title>
+<style>
+  :root {
+    --bg: #f6f6f4;
+    --card: #ffffff;
+    --text: #1c1c1a;
+    --muted: #6b6b66;
+    --line: #e2e2dd;
+    --accent: #6d4bd8;
+    --up: #1f9d55;
+    --down: #b8b8b2;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151514;
+      --card: #1e1e1c;
+      --text: #ececea;
+      --muted: #9a9a94;
+      --line: #2e2e2b;
+      --accent: #a58cff;
+      --up: #3ccf7c;
+      --down: #4a4a46;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.45 ui-sans-serif, -apple-system, system-ui, sans-serif;
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 28px 0 10px; }
+  h2 a { color: inherit; text-decoration: none; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+  .card.down { opacity: 0.6; }
+  .title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 16px; text-decoration: none; color: var(--text); }
+  .title:hover { color: var(--accent); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--down); flex: none; }
+  .dot.up { background: var(--up); }
+  .branch { color: var(--muted); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+  ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  li a { color: var(--accent); text-decoration: none; font-size: 13px; overflow-wrap: anywhere; }
+  li a:hover { text-decoration: underline; }
+  li .port { color: var(--muted); font-size: 12px; margin-left: 6px; }
+  .tag { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-weight: 400; }
+  .empty { color: var(--muted); padding: 24px 0; }
+  code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="heading">devhost</h1>
+    <span class="meta" id="updated"></span>
+  </header>
+  <div id="content"></div>
+</main>
+<script>
+  const content = document.getElementById("content");
+  const heading = document.getElementById("heading");
+  const updated = document.getElementById("updated");
+
+  function el(tag, props = {}, children = []) {
+    const node = Object.assign(document.createElement(tag), props);
+    for (const child of [].concat(children)) if (child != null) node.append(child);
+    return node;
+  }
+
+  function hhmm(iso) {
+    return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+  }
+
+  function card(instance) {
+    const primary = instance.routes[0];
+    const alive = instance.routes.some((route) => route.alive);
+    const title = el("a", { className: "title", href: primary ? `https://${primary.host}` : "#" }, [
+      el("span", { className: alive ? "dot up" : "dot" }),
+      instance.instance,
+      instance.source === "manual" ? el("span", { className: "tag", textContent: "manual" }) : null,
+    ]);
+    const links = el("ul", {}, instance.routes.map((route) =>
+      el("li", {}, [
+        el("a", { href: `https://${route.host}`, textContent: route.host }),
+        el("span", { className: "port", textContent: route.alive ? route.upstream : `${route.upstream} · down` }),
+      ]),
+    ));
+    return el("div", { className: alive ? "card" : "card down" }, [
+      title,
+      instance.branch ? el("div", { className: "branch", textContent: instance.branch }) : null,
+      links,
+    ]);
+  }
+
+  function render(data) {
+    const app = data.apps.find((candidate) => candidate.domain === location.hostname);
+    const apps = app ? [app] : data.apps;
+    heading.textContent = app ? app.name : "devhost";
+    document.title = app ? `${app.name} · devhost` : "devhost";
+    updated.textContent = `updated ${hhmm(data.generatedAt)}`;
+    const sections = apps.map((entry) => {
+      const instances = data.instances.filter((instance) => instance.app === entry.name);
+      const title = app ? null : el("h2", {}, el("a", { href: `https://${entry.domain}`, textContent: entry.name }));
+      const body = instances.length
+        ? el("div", { className: "grid" }, instances.map(card))
+        : el("div", { className: "empty", textContent: "Nothing running." });
+      return [title, body];
+    });
+    content.replaceChildren(...sections.flat().filter(Boolean));
+    if (!apps.length) {
+      content.replaceChildren(el("div", { className: "empty" }, ["No apps configured. Add one in ", el("code", { textContent: "~/.config/devhost/apps/" }), "."]));
+    }
+  }
+
+  async function refresh() {
+    try {
+      const response = await fetch("/instances.json", { cache: "no-store" });
+      if (response.ok) render(await response.json());
+    } catch {
+      updated.textContent = "could not load instances.json";
+    }
+  }
+
+  refresh();
+  setInterval(refresh, 3000);
+</script>
+</body>
+</html>
