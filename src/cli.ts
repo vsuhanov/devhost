@@ -1,6 +1,9 @@
+import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { appByName, loadApps, paths } from "./config.ts";
 import { findRoot, hostFor, listeners, run } from "./discover.ts";
+import { init } from "./init.ts";
+import { targetFor, tilde } from "./setup.ts";
 import { generatedCaddyfile, loadManual, portOf, saveManual, sync, type SyncResult } from "./sync.ts";
 
 const usage = `devhost: give locally running apps hostnames through Caddy
@@ -9,6 +12,7 @@ Usage:
   devhost up                              register everything running, print this worktree's URLs
   devhost ls                              register everything running, list all routes
   devhost watch [--interval <seconds>]    keep registering as apps start and stop
+  devhost init [dir]                      set up the app running in dir (default: here), interactively
   devhost add <app>/<instance> <port> [--host <name>] [--host-header upstream]
                                           route a port by hand (host defaults to <instance>)
   devhost rm <app>/<instance> [--host <name>]
@@ -64,7 +68,7 @@ const { values, positionals } = parseArgs({
 });
 
 const [command = "ls", ...rest] = positionals;
-const apps = loadApps();
+let apps = loadApps();
 
 if (values.help || command === "help") {
   process.stdout.write(`${usage}\n`);
@@ -74,7 +78,7 @@ if (values.help || command === "help") {
   const cwd = process.cwd();
   const root = run("git", ["-C", cwd, "rev-parse", "--show-toplevel"]).trim() || cwd;
   const known = apps.some((app) => findRoot(app, root));
-  if (!known) process.stdout.write(`no app in ${paths.apps} matches ${root}; showing everything\n`);
+  if (!known) process.stdout.write(`no app in ${paths.apps} matches ${root}; run \`devhost init\` to set it up. Showing everything:\n`);
   printRoutes(result, known ? (dir) => dir === root : undefined);
 } else if (command === "ls") {
   const result = sync(apps, listeners());
@@ -96,6 +100,21 @@ if (values.help || command === "help") {
   };
   tick();
   setInterval(tick, seconds * 1000);
+} else if (command === "init") {
+  const dir = resolve(rest[0] ?? process.cwd());
+  const all = listeners();
+  const target = targetFor(dir, all);
+  if (!target) fail(`${tilde(dir)} isn't inside a git repository`);
+  const owner = apps.find((app) => findRoot(app, target.root));
+  if (owner) fail(`${tilde(target.root)} already belongs to ${owner.name}; edit ${tilde(owner.file ?? paths.apps)} to change it`);
+  if (target.listeners.length === 0) fail(`nothing is listening in ${tilde(target.root)}; start the app, then run init again`);
+  if (!process.stdin.isTTY) fail("init asks questions, so it needs a terminal");
+  if ((await init(target, all)) === "written") {
+    apps = loadApps();
+    const result = sync(apps, listeners());
+    report(result);
+    printRoutes(result, (instanceDir) => instanceDir === target.root);
+  }
 } else if (command === "add") {
   const { app, instance } = parseTarget(rest[0]);
   const port = Number(rest[1]);

@@ -88,7 +88,15 @@ ln -s ~/projects/devhost/bin/devhost ~/.local/bin/devhost   # any directory on y
 
 ## Configure an app
 
-One JSON file per app in `~/.config/devhost/apps/`. The file name is the app name.
+The quickest way: start the app, then run `devhost init` inside its folder. It only looks at that folder's git repository and the processes listening from inside it, and asks:
+
+- **App name**, suggested from the remote's project name, then the main worktree's folder name, then this worktree's folder name.
+- **Instance folders**, from where the repo's worktrees actually are (`git worktree list`).
+- **One rule per process**: the text to match in its command line (the script path for `node … components/api/src/main.ts`, the package for `node_modules/.bin/vite`) and its hostname. The first rule, frontend dev servers first, gets `{instance}`.
+
+It shows the hostnames this folder would get, then writes the file. Nothing else looks for unconfigured apps.
+
+Or write the file yourself. One JSON file per app in `~/.config/devhost/apps/`. The file name is the app name.
 
 `~/.config/devhost/apps/myapp.json`:
 
@@ -121,6 +129,7 @@ Rules are applied in order. Each one takes the lowest listening port from a matc
 ## Usage
 
 ```sh
+devhost init     # set up the app running in this folder (asks questions)
 devhost up       # sync, then print the URLs for the worktree you're in
 devhost ls       # sync, then list all routes
 devhost watch    # sync every 3 seconds (--interval <seconds>)

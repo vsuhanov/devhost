@@ -38,7 +38,7 @@ function expandHome(path: string): string {
   return path === "~" || path.startsWith("~/") ? join(home, path.slice(1)) : path;
 }
 
-function globToRegExp(glob: string): RegExp {
+export function globToRegExp(glob: string): RegExp {
   const pattern = expandHome(glob)
     .replace(/\/+$/, "")
     .split("*")
