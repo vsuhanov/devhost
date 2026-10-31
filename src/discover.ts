@@ -14,6 +14,9 @@ export interface Route {
   host: string;
   upstream: string;
   hostHeader?: "upstream";
+  rule?: string;
+  pid?: number;
+  process?: string;
 }
 
 export interface Instance {
@@ -116,7 +119,14 @@ export function discoverInstance(app: AppConfig, root: string, all: Listener[]):
     const listener = inside.find((candidate) => !used.has(candidate) && candidate.command.includes(rule.command));
     if (!listener) continue;
     used.add(listener);
-    routes.push({ host: hostFor(app, rule.host, instance), upstream: listener.upstream, hostHeader: rule.hostHeader });
+    routes.push({
+      host: hostFor(app, rule.host, instance),
+      upstream: listener.upstream,
+      hostHeader: rule.hostHeader,
+      rule: rule.command,
+      pid: listener.pid,
+      process: listener.command,
+    });
   }
   return { app: app.name, instance, source: "auto", dir: root, branch, routes };
 }

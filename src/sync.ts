@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { appByName, paths, type AppConfig } from "./config.ts";
-import { discoverAll, type Instance, type Listener } from "./discover.ts";
+import { discoverAll, hostFor, type Instance, type Listener } from "./discover.ts";
 
 const manualFile = join(paths.state, "manual.json");
 const siteDir = join(paths.state, "site");
@@ -67,10 +67,20 @@ function writePicker(apps: AppConfig[], instances: Instance[], alive: Set<number
   copyFileSync(pickerSource, join(siteDir, "index.html"));
   const data = {
     generatedAt: new Date().toISOString(),
-    apps: [...new Set([...apps.map((app) => app.name), ...instances.map((i) => i.app)])].map((name) => ({
-      name,
-      domain: appByName(apps, name).domain,
-    })),
+    apps: [...new Set([...apps.map((app) => app.name), ...instances.map((i) => i.app)])].map((name) => {
+      const app = appByName(apps, name);
+      return {
+        name,
+        domain: app.domain,
+        file: app.file,
+        match: app.patterns,
+        rules: app.routes.map((rule) => ({
+          command: rule.command,
+          host: hostFor(app, rule.host, "{instance}"),
+          hostHeader: rule.hostHeader,
+        })),
+      };
+    }),
     instances: instances.map((instance) => ({
       ...instance,
       routes: instance.routes.map((route) => ({ ...route, alive: alive.has(portOf(route.upstream)) })),

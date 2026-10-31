@@ -11,6 +11,8 @@ export interface RouteRule {
 export interface AppConfig {
   name: string;
   domain: string;
+  file?: string;
+  patterns: string[];
   match: RegExp[];
   routes: RouteRule[];
 }
@@ -56,6 +58,8 @@ export function loadApps(): AppConfig[] {
       return {
         name,
         domain: data.domain ?? `${name}.test`,
+        file: join(paths.apps, file),
+        patterns: data.match ?? [],
         match: (data.match ?? []).map(globToRegExp),
         routes: data.routes ?? [],
       };
@@ -63,5 +67,5 @@ export function loadApps(): AppConfig[] {
 }
 
 export function appByName(apps: AppConfig[], name: string): AppConfig {
-  return apps.find((app) => app.name === name) ?? { name, domain: `${name}.test`, match: [], routes: [] };
+  return apps.find((app) => app.name === name) ?? { name, domain: `${name}.test`, patterns: [], match: [], routes: [] };
 }
